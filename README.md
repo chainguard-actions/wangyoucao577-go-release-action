@@ -9,6 +9,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
 | v1.52 | [`v1.52`](https://github.com/chainguard-actions/wangyoucao577-go-release-action/tree/v1.52) | [`2aa2977`](https://github.com/wangyoucao577/go-release-action/commit/2aa2977ad6a4534f9179e22bd0ff146a1e1d3466) |
+| v1.55 | [`v1.55`](https://github.com/chainguard-actions/wangyoucao577-go-release-action/tree/v1.55) | [`2794951`](https://github.com/wangyoucao577/go-release-action/commit/279495102627de7960cbc33434ab01a12bae144b) |
 
 ## Privacy
 
