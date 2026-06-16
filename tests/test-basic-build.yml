@@ -1,0 +1,67 @@
+name: Test basic Go build (linux/amd64, no upload)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REPOSITORY: testowner/testrepo
+      GITHUB_EVENT_NAME: workflow_dispatch
+      GITHUB_REF: refs/tags/v1.0.0
+      GITHUB_SERVER_URL: https://github.com
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Create a minimal Go project inside GITHUB_WORKSPACE so it's accessible in the Docker container
+      - name: Create minimal Go project
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/go-test-project"
+          cat > "$GITHUB_WORKSPACE/go-test-project/main.go" << 'EOF'
+          package main
+
+          import "fmt"
+
+          func main() {
+            fmt.Println("Hello, World!")
+          }
+          EOF
+          cat > "$GITHUB_WORKSPACE/go-test-project/go.mod" << 'EOF'
+          module example.com/hello
+
+          go 1.21
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: 'dummy-token'
+          goos: linux
+          goarch: amd64
+          project_path: ${{ github.workspace }}/go-test-project
+          upload: 'FALSE'
+          compress_assets: 'FALSE'
+          md5sum: 'FALSE'
+
+      - name: Assert release_asset_dir output is set
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "release_asset_dir: $ASSET_DIR"
+          if [ -z "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir output is empty"
+            exit 1
+          fi
+          echo "PASS: release_asset_dir=$ASSET_DIR"
+
+      - name: Assert release asset directory exists and contains binary
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "Checking directory: $ASSET_DIR"
+          if [ ! -d "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir does not exist: $ASSET_DIR"
+            exit 1
+          fi
+          echo "Contents of asset dir:"
+          ls -la "$ASSET_DIR"
+          echo "PASS"
