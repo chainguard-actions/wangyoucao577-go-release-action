@@ -1,0 +1,73 @@
+name: Test windows/amd64 build (zip compression)
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: windows
+          goarch: amd64
+          project_path: tests/fixtures/goapp
+          binary_name: testapp
+          upload: 'FALSE'
+          md5sum: 'TRUE'
+          sha256sum: 'FALSE'
+          compress_assets: 'AUTO'
+
+      - name: Assert release_asset_dir output is set
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "release_asset_dir: $ASSET_DIR"
+          if [ -z "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir output is empty"
+            exit 1
+          fi
+          echo "PASS: release_asset_dir is set to '$ASSET_DIR'"
+
+      - name: Assert build artifact directory exists
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "Checking directory: $ASSET_DIR"
+          if [ ! -d "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir '$ASSET_DIR' does not exist"
+            exit 1
+          fi
+          echo "Contents of asset dir:"
+          ls -lha "$ASSET_DIR"
+          echo "PASS: release_asset_dir exists"
+
+      - name: Assert Windows binary (.exe) was built
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "Looking for testapp.exe binary in $ASSET_DIR"
+          if [ ! -f "$ASSET_DIR/testapp.exe" ]; then
+            echo "FAIL: expected binary 'testapp.exe' not found in $ASSET_DIR"
+            ls -lha "$ASSET_DIR" || true
+            exit 1
+          fi
+          echo "PASS: binary 'testapp.exe' found"
+
+      - name: Assert zip archive was created for Windows
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          PARENT_DIR=$(dirname "$ASSET_DIR")
+          echo "Looking for .zip archive in $PARENT_DIR"
+          ARCHIVES=$(find "$PARENT_DIR" -maxdepth 1 -name "*.zip" 2>/dev/null)
+          echo "Found archives: $ARCHIVES"
+          if [ -z "$ARCHIVES" ]; then
+            echo "FAIL: no .zip archive found in $PARENT_DIR for Windows build"
+            ls -lha "$PARENT_DIR" || true
+            exit 1
+          fi
+          echo "PASS: zip archive found for Windows build"

@@ -51,7 +51,7 @@ git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
 # execute pre-command if exist, e.g. `go get -v ./...`
 if [ ! -z "${INPUT_PRE_COMMAND}" ]; then
-  eval ${INPUT_PRE_COMMAND}
+  bash -c "${INPUT_PRE_COMMAND}"
 fi
 
 # binary suffix
@@ -130,7 +130,7 @@ else
   cd ${INPUT_PROJECT_PATH}
   if [[ "${INPUT_BUILD_COMMAND}" =~ ^make.* ]]; then
     # start with make, assumes using make to build golang binaries, execute it directly
-    GOAMD64=${GOAMD64_FLAG} GOARM=${GOARM_FLAG} GOMIPS=${GOMIPS_FLAG} GOOS=${INPUT_GOOS} GOARCH=${INPUT_GOARCH} eval ${INPUT_BUILD_COMMAND}
+    GOAMD64=${GOAMD64_FLAG} GOARM=${GOARM_FLAG} GOMIPS=${GOMIPS_FLAG} GOOS=${INPUT_GOOS} GOARCH=${INPUT_GOARCH} bash -c "${INPUT_BUILD_COMMAND}"
     if [ -f "${BINARY_NAME}${EXT}" ]; then
       # assumes the binary will be generated in current dir, copy it for later processes
       cp ${BINARY_NAME}${EXT} ${BUILD_ARTIFACTS_FOLDER}/
@@ -144,7 +144,7 @@ fi
 if [ ! -z "${INPUT_EXECUTABLE_COMPRESSION}" ]; then
   if [[ "${INPUT_EXECUTABLE_COMPRESSION}" =~ ^upx.* ]]; then
     # start with upx, use upx to compress the executable binary
-    eval ${INPUT_EXECUTABLE_COMPRESSION} ${BUILD_ARTIFACTS_FOLDER}/${BINARY_NAME}${EXT}
+    bash -c "${INPUT_EXECUTABLE_COMPRESSION} ${BUILD_ARTIFACTS_FOLDER}/${BINARY_NAME}${EXT}"
   else
     echo "Unsupport executable compression: ${INPUT_EXECUTABLE_COMPRESSION}!"
     exit 1
@@ -229,10 +229,12 @@ fi
 ls -lha ../
 
 # output path for use by other workflows (e.g.: actions/upload-artifact)
-echo "release_asset_dir=${RELEASE_ASSET_DIR}" >>"${GITHUB_OUTPUT}"
+# sanitize to prevent newline injection into GITHUB_OUTPUT
+safe_release_asset_dir=$(printf '%s' "${RELEASE_ASSET_DIR}" | tr -d '\n\r')
+echo "release_asset_dir=${safe_release_asset_dir}" >> "${GITHUB_OUTPUT}"
 
 # execute post-command if exist, e.g. upload to AWS s3 or aliyun OSS
 if [ ! -z "${INPUT_POST_COMMAND}" ]; then
   INPUT_POST_COMMAND=${INPUT_POST_COMMAND/"{RELEASE_ASSET_DIR}"/${RELEASE_ASSET_DIR}}
-  eval ${INPUT_POST_COMMAND}
+  bash -c "${INPUT_POST_COMMAND}"
 fi

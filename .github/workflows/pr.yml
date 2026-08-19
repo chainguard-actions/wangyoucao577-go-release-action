@@ -1,0 +1,25 @@
+name: PR Build 
+
+on: 
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+
+  build:
+    name: PR Build & Check
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+    - name: Environment Printer
+      uses: managedkaos/print-env@cc44fee1591e49c86931a4a7458926ec441a85dd # v1.0
+
+    - run: docker build . 

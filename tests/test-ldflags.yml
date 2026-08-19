@@ -1,0 +1,58 @@
+name: Test build with ldflags
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: linux
+          goarch: amd64
+          project_path: tests/fixtures/goapp
+          binary_name: testapp-ldflags
+          upload: 'FALSE'
+          md5sum: 'FALSE'
+          sha256sum: 'FALSE'
+          compress_assets: 'OFF'
+          ldflags: '-s -w'
+
+      - name: Assert release_asset_dir output is set
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "release_asset_dir: $ASSET_DIR"
+          if [ -z "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir output is empty"
+            exit 1
+          fi
+          echo "PASS: release_asset_dir is set to '$ASSET_DIR'"
+
+      - name: Assert binary was built with ldflags
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "Looking for testapp-ldflags binary in $ASSET_DIR"
+          if [ ! -f "$ASSET_DIR/testapp-ldflags" ]; then
+            echo "FAIL: expected binary 'testapp-ldflags' not found in $ASSET_DIR"
+            ls -lha "$ASSET_DIR" || true
+            exit 1
+          fi
+          echo "Binary size:"
+          ls -lh "$ASSET_DIR/testapp-ldflags"
+          echo "PASS: binary 'testapp-ldflags' found (built with ldflags '-s -w')"
+
+      - name: Assert binary is executable
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          if [ ! -x "$ASSET_DIR/testapp-ldflags" ]; then
+            echo "FAIL: binary is not executable"
+            exit 1
+          fi
+          echo "PASS: binary is executable"

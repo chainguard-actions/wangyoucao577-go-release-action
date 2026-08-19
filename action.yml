@@ -118,7 +118,7 @@ outputs:
 
 runs:
   using: 'docker'
-  image: 'docker://ghcr.io/wangyoucao577/go-release-action@sha256:b484bac808dbd9566a37c12ec3238aa46e16f2a770e27624621e9381044ba091' # v1.52
+  image: 'docker://ghcr.io/wangyoucao577/go-release-action:v1.52@sha256:b484bac808dbd9566a37c12ec3238aa46e16f2a770e27624621e9381044ba091'
   args:
     - ${{ inputs.github_token }}
     - ${{ inputs.goos }}

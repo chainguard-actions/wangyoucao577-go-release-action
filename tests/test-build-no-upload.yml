@@ -1,0 +1,68 @@
+name: Test build without upload
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create minimal Go project in workspace
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/go-test-project"
+          cat > "$GITHUB_WORKSPACE/go-test-project/main.go" << 'EOF'
+          package main
+
+          import "fmt"
+
+          func main() {
+              fmt.Println("Hello, World!")
+          }
+          EOF
+          cat > "$GITHUB_WORKSPACE/go-test-project/go.mod" << 'EOF'
+          module example.com/hello
+
+          go 1.21
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: fake-token-not-used
+          goos: linux
+          goarch: amd64
+          project_path: go-test-project
+          binary_name: hello
+          upload: 'FALSE'
+          compress_assets: 'FALSE'
+          md5sum: 'FALSE'
+
+      - name: Assert release_asset_dir output is set
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "release_asset_dir: $ASSET_DIR"
+          if [ -z "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir output is empty"
+            exit 1
+          fi
+          echo "PASS: release_asset_dir=$ASSET_DIR"
+
+      - name: Assert binary was built
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          echo "Listing asset dir: $ASSET_DIR"
+          ls -la "$ASSET_DIR" || true
+          if [ ! -d "$ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir does not exist as a directory"
+            exit 1
+          fi
+          # Check that at least one file exists in the asset dir
+          FILE_COUNT=$(ls "$ASSET_DIR" | wc -l)
+          echo "File count in asset dir: $FILE_COUNT"
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "FAIL: no files found in release_asset_dir"
+            exit 1
+          fi
+          echo "PASS: found $FILE_COUNT file(s) in release_asset_dir"
