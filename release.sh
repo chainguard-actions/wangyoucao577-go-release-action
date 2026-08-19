@@ -141,7 +141,7 @@ fi
 if [ ! -z "${INPUT_EXECUTABLE_COMPRESSION}" ]; then
   if [[ "${INPUT_EXECUTABLE_COMPRESSION}" =~ ^upx.* ]]; then
     # start with upx, use upx to compress the executable binary
-    bash -c "${INPUT_EXECUTABLE_COMPRESSION} $(printf '%q' "${BUILD_ARTIFACTS_FOLDER}/${BINARY_NAME}${EXT}")"
+    bash -c "${INPUT_EXECUTABLE_COMPRESSION} ${BUILD_ARTIFACTS_FOLDER}/${BINARY_NAME}${EXT}"
   else
     echo "Unsupport executable compression: ${INPUT_EXECUTABLE_COMPRESSION}!"
     exit 1

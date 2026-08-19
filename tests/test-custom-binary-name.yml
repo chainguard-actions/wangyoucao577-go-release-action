@@ -1,70 +1,81 @@
-name: Test custom binary name (linux/arm64, no upload)
+name: Test build with custom binary name and no compression
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_REPOSITORY: testowner/testrepo
-      GITHUB_EVENT_NAME: workflow_dispatch
-      GITHUB_REF: refs/tags/v1.0.0
-      GITHUB_SERVER_URL: https://github.com
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # Create a minimal Go project inside GITHUB_WORKSPACE so it's accessible in the Docker container
-      - name: Create minimal Go project
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/go-arm-project"
-          cat > "$GITHUB_WORKSPACE/go-arm-project/main.go" << 'EOF'
-          package main
-
-          import "fmt"
-
-          func main() {
-            fmt.Println("Hello from ARM!")
-          }
-          EOF
-          cat > "$GITHUB_WORKSPACE/go-arm-project/go.mod" << 'EOF'
-          module example.com/helloarm
-
-          go 1.21
-          EOF
+        with:
+          fetch-depth: 0
 
       - id: action
         uses: .
         with:
-          github_token: 'dummy-token'
+          github_token: ${{ github.token }}
           goos: linux
           goarch: arm64
-          binary_name: 'myapp'
-          project_path: ${{ github.workspace }}/go-arm-project
+          binary_name: myapp
+          project_path: tests/fixtures/go-project
           upload: 'FALSE'
-          compress_assets: 'FALSE'
+          compress_assets: 'OFF'
           md5sum: 'FALSE'
           sha256sum: 'FALSE'
 
       - name: Assert release_asset_dir output is set
         env:
-          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+          ACTUAL: ${{ steps.action.outputs.release_asset_dir }}
         run: |
-          echo "release_asset_dir: $ASSET_DIR"
-          if [ -z "$ASSET_DIR" ]; then
+          echo "release_asset_dir: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
             echo "FAIL: release_asset_dir output is empty"
             exit 1
           fi
-          echo "PASS: release_asset_dir=$ASSET_DIR"
+          echo "PASS: release_asset_dir=$ACTUAL"
 
-      - name: Assert binary named myapp exists in asset dir
+      - name: Assert build artifact directory exists and contains binary
         env:
           ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
         run: |
-          echo "Checking for myapp binary in: $ASSET_DIR"
-          ls -la "$ASSET_DIR" || true
-          # Look for a file containing 'myapp' in the asset dir
-          if ! find "$ASSET_DIR" -name '*myapp*' | grep -q .; then
-            echo "FAIL: no file containing 'myapp' found in $ASSET_DIR"
+          # release_asset_dir may be relative (from inside the container) or absolute
+          if [[ "$ASSET_DIR" = /* ]]; then
+            FULL_ASSET_DIR="$ASSET_DIR"
+          else
+            FULL_ASSET_DIR="$GITHUB_WORKSPACE/$ASSET_DIR"
+          fi
+          echo "Checking asset dir: $FULL_ASSET_DIR"
+          if [ ! -d "$FULL_ASSET_DIR" ]; then
+            echo "FAIL: release_asset_dir '$FULL_ASSET_DIR' does not exist"
+            echo "Contents of GITHUB_WORKSPACE:"
+            ls -lha "$GITHUB_WORKSPACE"
             exit 1
           fi
-          echo "PASS: found myapp artifact"
-          find "$ASSET_DIR" -name '*myapp*'
+          echo "Contents of asset dir:"
+          ls -lha "$FULL_ASSET_DIR"
+          # With compress_assets=OFF, the binary 'myapp' should be in the asset dir
+          if [ ! -f "$FULL_ASSET_DIR/myapp" ]; then
+            echo "FAIL: expected binary 'myapp' not found in $FULL_ASSET_DIR"
+            exit 1
+          fi
+          echo "PASS: found binary myapp in asset dir"
+
+      - name: Assert uncompressed artifact file exists in asset dir
+        env:
+          ASSET_DIR: ${{ steps.action.outputs.release_asset_dir }}
+        run: |
+          # release_asset_dir may be relative (from inside the container) or absolute
+          if [[ "$ASSET_DIR" = /* ]]; then
+            FULL_ASSET_DIR="$ASSET_DIR"
+          else
+            FULL_ASSET_DIR="$GITHUB_WORKSPACE/$ASSET_DIR"
+          fi
+          echo "Contents of asset dir:"
+          ls -lha "$FULL_ASSET_DIR"
+          # With compress_assets=OFF, the artifact is a copy of the binary named myapp-<tag>-linux-arm64
+          # It is placed INSIDE the asset dir (no ../ prefix in the script)
+          ARTIFACT=$(find "$FULL_ASSET_DIR" -maxdepth 1 -name "myapp*" -not -type d | head -1)
+          if [ -z "$ARTIFACT" ]; then
+            echo "FAIL: no artifact named 'myapp*' found in $FULL_ASSET_DIR"
+            exit 1
+          fi
+          echo "PASS: found artifact $ARTIFACT"
